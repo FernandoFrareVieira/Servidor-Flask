@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify
 import requests
-from io import BytesIO
 
 app = Flask(__name__)
 
 TOKEN_URL = 'https://www.nyckel.com/connect/token'
 NYCKEL_CLIENT_ID = 't5b9np1au0xo5bgu534hd8bt9z3uo0xt'
 NYCKEL_CLIENT_SECRET = 'p23uy4bkuinga2fn83wvy40ltizol6mu24y27lv1skmvkui7jgmk31ul1h1f4mzo'
-PREDICTION_URL = 'https://www.nyckel.com/v1/functions/dog-breed-identifier/invoke'
+BREED_PREDICTION_URL = 'https://www.nyckel.com/v1/functions/dog-breed-identifier/invoke'
+AGE_PREDICTION_URL = 'https://www.nyckel.com/v1/functions/dog-age/invoke'
 
 def get_access_token():
     data = {
@@ -22,8 +22,8 @@ def get_access_token():
         raise Exception(f"Erro ao obter o token: {response.status_code} {response.text}")
 
 @app.route('/')
-def hello_world():
-    return "Hello World testing"
+def teste():
+    return "Servidor Flask para identificação de raça e idade de cachorros."
 
 @app.route('/upload', methods=['POST'])
 def upload_image():
@@ -40,18 +40,28 @@ def upload_image():
 
     headers = {'Authorization': f'Bearer {token}'}
     files = {'data': ('image.jpg', image_bytes, 'image/jpeg')}
-    response = requests.post(PREDICTION_URL, headers=headers, files=files)
 
-    if response.status_code == 200:
-        result = response.json()
+    # Requisição para identificação da raça
+    breed_response = requests.post(BREED_PREDICTION_URL, headers=headers, files=files)
+
+    # Requisição para identificação da idade
+    age_response = requests.post(AGE_PREDICTION_URL, headers=headers, files=files)
+
+    if breed_response.status_code == 200 and age_response.status_code == 200:
+        breed_result = breed_response.json()
+        age_result = age_response.json()
         return jsonify({
-            "message": "Raça identificada com sucesso!",
-            "prediction": result
+            "message": "Raça e idade identificadas com sucesso!",
+            "breed": breed_result,
+            "age": age_result
         }), 200
     else:
-        return jsonify({
-            "error": f"Erro ao usar o Nyckel: {response.status_code} {response.text}"
-        }), 500
+        error_messages = []
+        if breed_response.status_code != 200:
+            error_messages.append(f"Erro na identificação da raça: {breed_response.status_code} {breed_response.text}")
+        if age_response.status_code != 200:
+            error_messages.append(f"Erro na identificação da idade: {age_response.status_code} {age_response.text}")
+        return jsonify({"error": " | ".join(error_messages)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
