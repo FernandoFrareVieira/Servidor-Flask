@@ -1,15 +1,7 @@
 from flask import Flask, request, jsonify
 import requests
-import mysql.connector
-from mysql.connector import pooling
 
 app = Flask(__name__)
-
-# Configurações do banco de dados
-DB_HOST = '35.247.232.121'
-DB_USER = 'alano'
-DB_PASSWORD = '1234'
-DB_NAME = 'db_cachorros'
 
 # Configurações da API Nyckel
 TOKEN_URL = 'https://www.nyckel.com/connect/token'
@@ -17,17 +9,6 @@ NYCKEL_CLIENT_ID = 't5b9np1au0xo5bgu534hd8bt9z3uo0xt'
 NYCKEL_CLIENT_SECRET = 'p23uy4bkuinga2fn83wvy40ltizol6mu24y27lv1skmvkui7jgmk31ul1h1f4mzo'
 BREED_PREDICTION_URL = 'https://www.nyckel.com/v1/functions/dog-breed-identifier/invoke'
 AGE_PREDICTION_URL = 'https://www.nyckel.com/v1/functions/dog-age/invoke'
-
-# Configurações do pool de conexão com o banco
-DB_CONFIG = {
-    'host': DB_HOST,
-    'user': DB_USER,
-    'password': DB_PASSWORD,
-    'database': DB_NAME,
-}
-
-# Pool de conexões do banco de dados
-db_pool = pooling.MySQLConnectionPool(pool_name="dog_pool", pool_size=5, **DB_CONFIG)
 
 # Função para obter o token de acesso
 def get_access_token():
@@ -41,25 +22,6 @@ def get_access_token():
         return response.json().get('access_token')
     else:
         raise Exception(f"Erro ao obter o token: {response.status_code} {response.text}")
-
-# Função para consultar o banco de dados
-def get_dog_size_from_db(breed, age_group):
-    # Obtém conexão do pool
-    connection = db_pool.get_connection()
-    cursor = connection.cursor()
-
-    # Consulta SQL
-    query = "SELECT size FROM dogs WHERE breed = %s AND age_group = %s"
-    cursor.execute(query, (breed, age_group))
-    result = cursor.fetchone()
-
-    cursor.close()
-    connection.close()
-
-    if result:
-        return result[0]  # Retorna o tamanho, "Pequeno" ou "Grande"
-    else:
-        return None  # Caso não encontre o cachorro com essas características
 
 @app.route('/')
 def teste():
@@ -91,24 +53,14 @@ def upload_image():
         breed_result = breed_response.json()
         age_result = age_response.json()
 
-        breed =  breed_result.get("labelName", "Raça não identificada")
+        breed = breed_result.get("labelName", "Raça não identificada")
         age_group = age_result.get("labelName", "Idade não identificada")
 
-        # Chama a função para consultar o banco de dados
-        dog_size = get_dog_size_from_db(breed, age_group)
-
-        if dog_size:
-            return jsonify({
-                "message": "Raça, idade e tamanho identificados com sucesso!",
-                "breed": breed,
-                "age": age_group,
-                "size": dog_size
-            }), 200
-        else:
-            return jsonify({
-                "error": f"Nenhum tamanho encontrado para a raça '{breed}' e idade '{age_group}'"
-            }), 404
-
+        return jsonify({
+            "message": "Raça e idade identificadas com sucesso!",
+            "breed": breed,
+            "age": age_group
+        }), 200
     else:
         error_messages = []
         if breed_response.status_code != 200:
